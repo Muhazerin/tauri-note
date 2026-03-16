@@ -1,6 +1,6 @@
 # Tauri Note App - Learning Materials
 
-Welcome to the Tauri Note App learning journey! This folder contains comprehensive learning materials organized into 7 phases, each focusing on a specific aspect of Tauri development.
+Welcome to the Tauri Note App learning journey! This folder contains comprehensive learning materials organized into 8 phases, each focusing on a specific aspect of Tauri development.
 
 ## 📚 Course Structure
 
@@ -20,6 +20,7 @@ Each phase contains:
 | [Phase 5](./phase-5-system-tray/) | System Tray | Add tray icon, tray menu, minimize to tray |
 | [Phase 6](./phase-6-custom-window/) | Custom Window | Custom titlebar, window controls, Window API |
 | [Phase 7](./phase-7-auto-updates/) | Auto-Updates | Configure updater, signing, GitHub releases |
+| [Phase 8](./phase-8-database-migration/) | Database Migration | Migrate JSON to PouchDB/CouchDB, cross-platform data |
 
 ## 🎯 How to Use
 
@@ -39,7 +40,8 @@ Each phase contains:
 | Phase 5 | 1-2 hours |
 | Phase 6 | 1-2 hours |
 | Phase 7 | 2-3 hours |
-| **Total** | **10-16 hours** |
+| Phase 8 | 2-4 hours |
+| **Total** | **12-20 hours** |
 
 ## 📋 Prerequisites
 
