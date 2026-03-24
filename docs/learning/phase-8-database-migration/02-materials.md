@@ -493,11 +493,13 @@ fn delete_note(
 
 ### Frontend Usage
 
+Create a service module for database operations:
+
 ```typescript
-// src/hooks/useNotes.ts
+// src/lib/services/notes.ts
 import { invoke } from '@tauri-apps/api/core';
 
-interface NoteDocument {
+export interface NoteDocument {
   _id: string;
   _rev: string;
   title: string;
@@ -506,34 +508,139 @@ interface NoteDocument {
   updated_at: string;
 }
 
-export function useNotes() {
-  const createNote = async (title: string, content: string): Promise<NoteDocument> => {
-    return await invoke('create_note', { title, content });
-  };
-
-  const getAllNotes = async (): Promise<NoteDocument[]> => {
-    return await invoke('get_all_notes');
-  };
-
-  const getNote = async (id: string): Promise<NoteDocument | null> => {
-    return await invoke('get_note', { id });
-  };
-
-  const updateNote = async (
-    id: string,
-    rev: string,
-    title: string,
-    content: string
-  ): Promise<NoteDocument> => {
-    return await invoke('update_note', { id, rev, title, content });
-  };
-
-  const deleteNote = async (id: string, rev: string): Promise<void> => {
-    return await invoke('delete_note', { id, rev });
-  };
-
-  return { createNote, getAllNotes, getNote, updateNote, deleteNote };
+export async function createNote(title: string, content: string): Promise<NoteDocument> {
+  return await invoke('create_note', { title, content });
 }
+
+export async function getAllNotes(): Promise<NoteDocument[]> {
+  return await invoke('get_all_notes');
+}
+
+export async function getNote(id: string): Promise<NoteDocument | null> {
+  return await invoke('get_note', { id });
+}
+
+export async function updateNote(
+  id: string,
+  rev: string,
+  title: string,
+  content: string
+): Promise<NoteDocument> {
+  return await invoke('update_note', { id, rev, title, content });
+}
+
+export async function deleteNote(id: string, rev: string): Promise<void> {
+  return await invoke('delete_note', { id, rev });
+}
+```
+
+Create a Svelte store for notes state:
+
+```typescript
+// src/lib/stores/notes.ts
+import { writable } from 'svelte/store';
+import * as notesService from '$lib/services/notes';
+import type { NoteDocument } from '$lib/services/notes';
+
+function createNotesStore() {
+  const { subscribe, set, update } = writable<NoteDocument[]>([]);
+
+  return {
+    subscribe,
+    
+    load: async () => {
+      const notes = await notesService.getAllNotes();
+      set(notes);
+    },
+    
+    create: async (title: string, content: string) => {
+      const note = await notesService.createNote(title, content);
+      update(notes => [note, ...notes]);
+      return note;
+    },
+    
+    update: async (id: string, rev: string, title: string, content: string) => {
+      const updated = await notesService.updateNote(id, rev, title, content);
+      update(notes => notes.map(n => n._id === id ? updated : n));
+      return updated;
+    },
+    
+    delete: async (id: string, rev: string) => {
+      await notesService.deleteNote(id, rev);
+      update(notes => notes.filter(n => n._id !== id));
+    }
+  };
+}
+
+export const notes = createNotesStore();
+```
+
+Using in a Svelte component:
+
+```svelte
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { notes } from '$lib/stores/notes';
+  import type { NoteDocument } from '$lib/services/notes';
+
+  let newTitle = '';
+  let newContent = '';
+  let error = '';
+
+  onMount(() => {
+    notes.load();
+  });
+
+  async function handleCreate() {
+    if (!newTitle.trim()) return;
+    
+    try {
+      await notes.create(newTitle, newContent);
+      newTitle = '';
+      newContent = '';
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  async function handleDelete(note: NoteDocument) {
+    try {
+      await notes.delete(note._id, note._rev);
+    } catch (e) {
+      if (String(e).includes('Conflict')) {
+        // Handle conflict - refresh and retry
+        await notes.load();
+        error = 'Note was modified. Please try again.';
+      } else {
+        error = String(e);
+      }
+    }
+  }
+</script>
+
+<main class="p-4">
+  {#if error}
+    <p class="text-red-500 mb-4">{error}</p>
+  {/if}
+
+  <form on:submit|preventDefault={handleCreate} class="mb-6">
+    <input bind:value={newTitle} placeholder="Title" class="border p-2 mr-2" />
+    <textarea bind:value={newContent} placeholder="Content" class="border p-2 mr-2"></textarea>
+    <button type="submit" class="bg-blue-500 text-white px-4 py-2">Add Note</button>
+  </form>
+
+  {#each $notes as note (note._id)}
+    <div class="border p-4 mb-2 rounded">
+      <h2 class="font-bold">{note.title}</h2>
+      <p>{note.content}</p>
+      <p class="text-sm text-gray-500">Rev: {note._rev}</p>
+      <button on:click={() => handleDelete(note)} class="text-red-500 mt-2">
+        Delete
+      </button>
+    </div>
+  {/each}
+</main>
 ```
 
 ---
@@ -724,50 +831,66 @@ fn run_migration(
 
 ### Frontend Migration Flow
 
-```typescript
-// src/App.tsx
-import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+```svelte
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { invoke } from '@tauri-apps/api/core';
+  import { notes } from '$lib/stores/notes';
 
-interface MigrationResult {
-  migrated: boolean;
-  notes_count: number;
-  message: string;
-}
+  interface MigrationResult {
+    migrated: boolean;
+    notes_count: number;
+    message: string;
+  }
 
-function App() {
-  const [loading, setLoading] = useState(true);
-  const [migrationStatus, setMigrationStatus] = useState<string>('');
+  let loading = true;
+  let migrationStatus = '';
+  let error = '';
 
-  useEffect(() => {
-    async function initApp() {
-      try {
-        // 1. Initialize database
-        await invoke('init_database');
-        
-        // 2. Run migration if needed
-        const result = await invoke<MigrationResult>('run_migration');
-        
-        if (result.migrated) {
-          setMigrationStatus(`Migrated ${result.notes_count} notes from JSON`);
-        }
-        
-        // 3. Load notes
-        const notes = await invoke('get_all_notes');
-        // ... set notes state
-        
-      } catch (error) {
-        console.error('Initialization failed:', error);
-      } finally {
-        setLoading(false);
+  onMount(async () => {
+    try {
+      // 1. Initialize database
+      await invoke('init_database');
+      
+      // 2. Run migration if needed
+      const result = await invoke<MigrationResult>('run_migration');
+      
+      if (result.migrated) {
+        migrationStatus = `Migrated ${result.notes_count} notes from JSON`;
       }
+      
+      // 3. Load notes
+      await notes.load();
+      
+    } catch (e) {
+      console.error('Initialization failed:', e);
+      error = String(e);
+    } finally {
+      loading = false;
     }
-    
-    initApp();
-  }, []);
+  });
+</script>
 
-  // ... rest of component
-}
+{#if loading}
+  <div class="p-4">Initializing...</div>
+{:else if error}
+  <div class="p-4 text-red-500">Error: {error}</div>
+{:else}
+  {#if migrationStatus}
+    <div class="p-4 bg-green-100 text-green-800 mb-4">
+      {migrationStatus}
+    </div>
+  {/if}
+  
+  <!-- Rest of your app -->
+  {#each $notes as note (note._id)}
+    <div class="border p-4 mb-2">
+      <h2 class="font-bold">{note.title}</h2>
+      <p>{note.content}</p>
+    </div>
+  {/each}
+{/if}
 ```
 
 ---

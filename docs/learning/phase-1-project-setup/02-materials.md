@@ -5,8 +5,9 @@
 2. [Tauri v2 Architecture](#tauri-v2-architecture)
 3. [Project Structure Explained](#project-structure-explained)
 4. [Configuration Files](#configuration-files)
-5. [Development Workflow](#development-workflow)
-6. [Hands-On Exercises](#hands-on-exercises)
+5. [SvelteKit Basics for Tauri](#sveltekit-basics-for-tauri)
+6. [Development Workflow](#development-workflow)
+7. [Hands-On Exercises](#hands-on-exercises)
 
 ---
 
@@ -42,11 +43,11 @@ Tauri is a framework for building tiny, fast binaries for all major desktop plat
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────────────┐    ┌─────────────────────────┐ │
 │  │     Frontend        │    │       Backend           │ │
-│  │  (React + Vite)     │◄──►│       (Rust)            │ │
+│  │  (SvelteKit + Vite) │◄──►│       (Rust)            │ │
 │  │                     │IPC │                         │ │
 │  │  - Components       │    │  - Tauri Commands       │ │
-│  │  - Styles           │    │  - File System          │ │
-│  │  - State            │    │  - System APIs          │ │
+│  │  - Routes           │    │  - File System          │ │
+│  │  - Stores           │    │  - System APIs          │ │
 │  └─────────────────────┘    └─────────────────────────┘ │
 │              │                         │                 │
 │              ▼                         ▼                 │
@@ -78,15 +79,20 @@ Tauri is a framework for building tiny, fast binaries for all major desktop plat
 
 ## Project Structure Explained
 
-After initializing a Tauri project, you'll have this structure:
+After initializing a Tauri project with SvelteKit, you'll have this structure:
 
 ```
 tauri-note/
 ├── src/                      # Frontend source code
-│   ├── App.tsx               # Main React component
-│   ├── main.tsx              # React entry point
-│   ├── index.css             # Global styles
-│   └── vite-env.d.ts         # Vite type definitions
+│   ├── app.html              # HTML template
+│   ├── routes/               # SvelteKit routes
+│   │   ├── +page.svelte      # Home page component
+│   │   ├── +layout.svelte    # Root layout (optional)
+│   │   └── +layout.ts        # Layout config (SSR disabled)
+│   └── lib/                  # Shared code
+│       ├── components/       # Reusable Svelte components
+│       ├── stores/           # Svelte stores
+│       └── types/            # TypeScript types
 │
 ├── src-tauri/                # Rust backend
 │   ├── src/
@@ -97,10 +103,10 @@ tauri-note/
 │   ├── capabilities/         # Permission definitions
 │   └── icons/                # App icons
 │
-├── public/                   # Static assets
-├── index.html                # HTML entry point
+├── static/                   # Static assets
 ├── package.json              # Node.js dependencies
-├── vite.config.ts            # Vite configuration
+├── svelte.config.js          # SvelteKit configuration
+├── vite.config.js            # Vite configuration
 └── tsconfig.json             # TypeScript configuration
 ```
 
@@ -108,9 +114,10 @@ tauri-note/
 
 | File | Purpose |
 |------|---------|
-| `main.tsx` | React app entry point, renders `<App />` |
-| `App.tsx` | Main application component |
-| `index.css` | Global styles (Tailwind imports go here) |
+| `app.html` | HTML template with `%sveltekit.head%` and `%sveltekit.body%` |
+| `routes/+page.svelte` | Home page component |
+| `routes/+layout.ts` | Disables SSR and enables prerendering for Tauri |
+| `lib/` | Shared components, stores, and utilities |
 
 ### Backend Files (`src-tauri/`)
 
@@ -137,7 +144,7 @@ This is the main configuration file for your Tauri app:
   "version": "0.1.0",
   "identifier": "com.tauri-note.app",
   "build": {
-    "frontendDist": "../dist",
+    "frontendDist": "../build",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build"
@@ -173,6 +180,29 @@ This is the main configuration file for your Tauri app:
 | `app.windows` | Window configuration (size, title, etc.) |
 | `bundle` | Packaging options for distribution |
 
+### svelte.config.js
+
+SvelteKit configuration for Tauri:
+
+```javascript
+import adapter from '@sveltejs/adapter-static';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+
+/** @type {import('@sveltejs/kit').Config} */
+const config = {
+  preprocess: vitePreprocess(),
+  kit: {
+    adapter: adapter({
+      fallback: 'index.html'
+    })
+  }
+};
+
+export default config;
+```
+
+**Important**: We use `adapter-static` because Tauri loads static files, not a Node.js server.
+
 ### Cargo.toml
 
 Rust package manifest:
@@ -192,16 +222,16 @@ serde_json = "1"
 tauri-build = { version = "2", features = [] }
 ```
 
-### vite.config.ts
+### vite.config.js
 
 Vite configuration for the frontend:
 
-```typescript
+```javascript
+import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [sveltekit()],
   clearScreen: false,
   server: {
     port: 5173,
@@ -209,6 +239,80 @@ export default defineConfig({
   },
   envPrefix: ['VITE_', 'TAURI_'],
 });
+```
+
+---
+
+## SvelteKit Basics for Tauri
+
+### Why SvelteKit?
+
+SvelteKit provides:
+- **File-based routing**: Create routes by adding files to `src/routes/`
+- **Component-based architecture**: Reusable `.svelte` components
+- **Built-in stores**: Reactive state management
+- **TypeScript support**: Full type safety
+- **Vite integration**: Fast development with HMR
+
+### Disabling SSR for Tauri
+
+Tauri loads static files, so we need to disable Server-Side Rendering. Create `src/routes/+layout.ts`:
+
+```typescript
+// This disables SSR for the entire app
+export const prerender = true;
+export const ssr = false;
+```
+
+### File-Based Routing
+
+| File | Route |
+|------|-------|
+| `src/routes/+page.svelte` | `/` |
+| `src/routes/about/+page.svelte` | `/about` |
+| `src/routes/notes/+page.svelte` | `/notes` |
+| `src/routes/notes/[id]/+page.svelte` | `/notes/:id` |
+
+### Basic Svelte Component
+
+```svelte
+<script lang="ts">
+  // TypeScript code here
+  let count = $state(0);
+  
+  function increment() {
+    count++;
+  }
+</script>
+
+<button onclick={increment}>
+  Count: {count}
+</button>
+
+<style>
+  button {
+    padding: 1rem;
+  }
+</style>
+```
+
+### Svelte Stores for State Management
+
+```typescript
+// src/lib/stores/counter.ts
+import { writable } from 'svelte/store';
+
+export const count = writable(0);
+```
+
+```svelte
+<script lang="ts">
+  import { count } from '$lib/stores/counter';
+</script>
+
+<button onclick={() => $count++}>
+  Count: {$count}
+</button>
 ```
 
 ---
@@ -247,7 +351,7 @@ export default defineConfig({
 After initializing the project:
 1. Open `src-tauri/tauri.conf.json` and identify the window settings
 2. Open `src-tauri/src/main.rs` and find where the app is created
-3. Open `src/App.tsx` and understand the React component
+3. Open `src/routes/+page.svelte` and understand the Svelte component
 
 ### Exercise 2: Modify Window Settings
 1. Change the window title in `tauri.conf.json`
@@ -255,16 +359,46 @@ After initializing the project:
 3. Run `pnpm tauri dev` to see your changes
 
 ### Exercise 3: Add Tailwind CSS
-1. Install Tailwind CSS dependencies
-2. Configure `tailwind.config.js`
-3. Add Tailwind directives to `index.css`
-4. Use Tailwind classes in `App.tsx`
+1. Install Tailwind CSS: `pnpm add -D tailwindcss postcss autoprefixer`
+2. Initialize Tailwind: `npx tailwindcss init -p`
+3. Configure `tailwind.config.js`:
+   ```javascript
+   export default {
+     content: ['./src/**/*.{html,js,svelte,ts}'],
+     theme: { extend: {} },
+     plugins: [],
+   }
+   ```
+4. Create `src/app.css` with Tailwind directives:
+   ```css
+   @tailwind base;
+   @tailwind components;
+   @tailwind utilities;
+   ```
+5. Import in `src/routes/+layout.svelte`:
+   ```svelte
+   <script>
+     import '../app.css';
+   </script>
+   
+   <slot />
+   ```
 
 ### Exercise 4: Understand Hot Reload
 1. Run `pnpm tauri dev`
-2. Modify text in `App.tsx`
+2. Modify text in `src/routes/+page.svelte`
 3. Observe the automatic update in the window
 4. Note: Rust changes require recompilation (automatic but slower)
+
+### Exercise 5: Create a New Route
+1. Create `src/routes/about/+page.svelte`:
+   ```svelte
+   <h1>About</h1>
+   <p>This is the about page.</p>
+   <a href="/">Back to Home</a>
+   ```
+2. Add a link from the home page to `/about`
+3. Test navigation in the Tauri window
 
 ---
 
@@ -273,7 +407,8 @@ After initializing the project:
 - [Tauri v2 Documentation](https://v2.tauri.app/)
 - [Tauri Configuration Reference](https://v2.tauri.app/reference/config/)
 - [Vite Documentation](https://vitejs.dev/)
-- [React Documentation](https://react.dev/)
+- [Svelte Documentation](https://svelte.dev/docs)
+- [SvelteKit Documentation](https://svelte.dev/docs/kit)
 - [Tailwind CSS Documentation](https://tailwindcss.com/)
 
 ---
@@ -285,6 +420,8 @@ In this phase, you learned:
 - ✅ The architecture of a Tauri v2 application
 - ✅ The purpose of each file in the project structure
 - ✅ How to configure Tauri via `tauri.conf.json`
+- ✅ SvelteKit basics: routing, components, and stores
+- ✅ Why SSR must be disabled for Tauri
 - ✅ The development workflow with hot-reload
 
 Next: [Phase 2 - Core Note Functionality + IPC](../phase-2-ipc/01-objectives.md)

@@ -1,7 +1,7 @@
 # Phase 1: Project Setup & Basic Structure - Learning Objectives
 
 ## Overview
-In this phase, you will set up a Tauri v2 project with React, TypeScript, and Vite. You'll learn the fundamental structure of a Tauri application and how the frontend and backend work together.
+In this phase, you will set up a Tauri v2 project with SvelteKit, TypeScript, and Vite. You'll learn the fundamental structure of a Tauri application and how the frontend and backend work together.
 
 ---
 
@@ -11,7 +11,7 @@ After completing this phase, you should be able to:
 
 ### 1. Understand Tauri Project Structure
 - [ ] Explain the purpose of the `src-tauri/` directory and its contents
-- [ ] Understand the relationship between the frontend (React) and backend (Rust)
+- [ ] Understand the relationship between the frontend (SvelteKit) and backend (Rust)
 - [ ] Navigate and modify `tauri.conf.json` configuration file
 - [ ] Identify the role of `Cargo.toml` in the Rust backend
 
@@ -31,6 +31,11 @@ After completing this phase, you should be able to:
 - [ ] Configure TypeScript with proper settings
 - [ ] Understand Vite's role in the development workflow
 
+### 5. Understand SvelteKit Basics
+- [ ] Understand file-based routing in SvelteKit
+- [ ] Know the purpose of `+page.svelte`, `+layout.svelte`, and `+layout.ts`
+- [ ] Understand how to disable SSR for Tauri (static adapter)
+
 ---
 
 ## Key Concepts to Master
@@ -39,9 +44,11 @@ After completing this phase, you should be able to:
 |---------|-------------|
 | `tauri.conf.json` | Main configuration file for Tauri app settings |
 | `Cargo.toml` | Rust package manifest with dependencies |
+| `svelte.config.js` | SvelteKit configuration file |
 | Webview | The browser engine that renders the frontend |
 | IPC | Inter-Process Communication between frontend and backend |
 | Hot Reload | Automatic refresh when code changes |
+| SSR | Server-Side Rendering (disabled for Tauri) |
 
 ---
 
@@ -50,7 +57,8 @@ After completing this phase, you should be able to:
 You have successfully completed this phase when you can:
 
 1. ✅ Run `pnpm tauri dev` and see the application window
-2. ✅ Make a change to the React code and see it update automatically
+2. ✅ Make a change to the Svelte code and see it update automatically
 3. ✅ Explain what each file in `src-tauri/` does
 4. ✅ Modify `tauri.conf.json` to change the window title
-5. ✅ Use Tailwind CSS classes in your React components
+5. ✅ Use Tailwind CSS classes in your Svelte components
+6. ✅ Understand why `+layout.ts` exports `prerender` and `ssr` settings

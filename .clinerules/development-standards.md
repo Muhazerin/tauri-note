@@ -1,10 +1,10 @@
 # Tauri Note App - Development Standards
 
 ## Project Overview
-This is a Tauri v2 note-taking application built with React, TypeScript, and Rust. The project serves as a learning resource for Tauri development.
+This is a Tauri v2 note-taking application built with SvelteKit, TypeScript, and Rust. The project serves as a learning resource for Tauri development.
 
 ## Technology Stack
-- **Frontend**: React 18+ with TypeScript
+- **Frontend**: SvelteKit with TypeScript
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS
 - **Backend**: Rust (Tauri v2)
@@ -14,13 +14,14 @@ This is a Tauri v2 note-taking application built with React, TypeScript, and Rus
 ## Naming Conventions
 
 ### Files and Directories
-- React components: `PascalCase.tsx`
+- Svelte components: `PascalCase.svelte`
+- Svelte routes: `+page.svelte`, `+layout.svelte`, `+server.ts`
 - TypeScript utilities: `camelCase.ts`
 - Rust modules: `snake_case.rs`
 - CSS/Style files: `kebab-case.css`
 
 ### Variables and Functions
-- TypeScript: `camelCase`
+- TypeScript/Svelte: `camelCase`
 - Rust: `snake_case`
 - Constants: `SCREAMING_SNAKE_CASE`
 - Types/Interfaces: `PascalCase`
@@ -28,6 +29,29 @@ This is a Tauri v2 note-taking application built with React, TypeScript, and Rus
 ### Tauri Commands
 - Rust function: `snake_case` (e.g., `get_all_notes`)
 - Invoke call: `snake_case` string (e.g., `invoke('get_all_notes')`)
+
+## SvelteKit Conventions
+
+### Route Structure
+```
+src/routes/
+├── +page.svelte          # Home page
+├── +layout.svelte        # Root layout
+├── +layout.ts            # Layout load function
+├── notes/
+│   ├── +page.svelte      # Notes list page
+│   └── [id]/
+│       └── +page.svelte  # Individual note page
+```
+
+### Component Organization
+```
+src/lib/
+├── components/           # Reusable Svelte components
+├── stores/               # Svelte stores for state management
+├── utils/                # Utility functions
+└── types/                # TypeScript type definitions
+```
 
 ## Git Commit Standards
 
@@ -72,8 +96,8 @@ This project follows TDD methodology:
 - User approval is required before modifying any existing test cases
 
 ### Frontend Testing
-- Test components with React Testing Library
-- Test hooks in isolation
+- Test Svelte components with Svelte Testing Library or Vitest
+- Test stores in isolation
 - Mock Tauri invoke calls in tests
 - Write tests before implementing components
 

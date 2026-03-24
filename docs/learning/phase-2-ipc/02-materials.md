@@ -20,7 +20,7 @@ IPC (Inter-Process Communication) is the mechanism that allows the frontend (Jav
 ```
 ┌─────────────────┐         IPC          ┌─────────────────┐
 │    Frontend     │ ◄──────────────────► │     Backend     │
-│   (React/JS)    │                      │     (Rust)      │
+│  (SvelteKit/JS) │                      │     (Rust)      │
 │                 │   invoke('cmd')      │                 │
 │                 │ ─────────────────►   │  #[command]     │
 │                 │                      │  fn cmd() {}    │
@@ -208,7 +208,7 @@ fn get_note(id: &str) -> Result<Note, String> {
 Create a matching TypeScript interface:
 
 ```typescript
-// src/types/Note.ts
+// src/lib/types/Note.ts
 export interface Note {
     id: string;
     title: string;
@@ -222,7 +222,7 @@ export interface Note {
 
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
-import { Note } from './types/Note';
+import type { Note } from '$lib/types/Note';
 
 const note = await invoke<Note>('get_note', { id: '123' });
 console.log(note.title); // "My Note"
@@ -403,36 +403,192 @@ pub fn run() {
 }
 ```
 
-### Frontend Usage
+### Frontend Usage with Svelte
+
+Create a notes service module:
 
 ```typescript
-// src/hooks/useNotes.ts
+// src/lib/services/notes.ts
 import { invoke } from '@tauri-apps/api/core';
-import { Note } from '../types/Note';
+import type { Note } from '$lib/types/Note';
 
-export const useNotes = () => {
-    const createNote = async (title: string, content: string): Promise<Note> => {
-        return invoke<Note>('create_note', { title, content });
+export async function createNote(title: string, content: string): Promise<Note> {
+    return invoke<Note>('create_note', { title, content });
+}
+
+export async function getAllNotes(): Promise<Note[]> {
+    return invoke<Note[]>('get_all_notes');
+}
+
+export async function getNote(id: string): Promise<Note> {
+    return invoke<Note>('get_note', { id });
+}
+
+export async function updateNote(id: string, title: string, content: string): Promise<Note> {
+    return invoke<Note>('update_note', { id, title, content });
+}
+
+export async function deleteNote(id: string): Promise<void> {
+    return invoke('delete_note', { id });
+}
+```
+
+### Using in a Svelte Component
+
+```svelte
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+    import { onMount } from 'svelte';
+    import { getAllNotes, createNote, deleteNote } from '$lib/services/notes';
+    import type { Note } from '$lib/types/Note';
+
+    let notes: Note[] = [];
+    let newTitle = '';
+    let newContent = '';
+    let loading = true;
+    let error = '';
+
+    onMount(async () => {
+        await loadNotes();
+    });
+
+    async function loadNotes() {
+        try {
+            loading = true;
+            notes = await getAllNotes();
+        } catch (e) {
+            error = String(e);
+        } finally {
+            loading = false;
+        }
+    }
+
+    async function handleCreate() {
+        if (!newTitle.trim()) return;
+        
+        try {
+            const note = await createNote(newTitle, newContent);
+            notes = [...notes, note];
+            newTitle = '';
+            newContent = '';
+        } catch (e) {
+            error = String(e);
+        }
+    }
+
+    async function handleDelete(id: string) {
+        try {
+            await deleteNote(id);
+            notes = notes.filter(n => n.id !== id);
+        } catch (e) {
+            error = String(e);
+        }
+    }
+</script>
+
+<main class="p-4">
+    <h1 class="text-2xl font-bold mb-4">Notes</h1>
+
+    {#if error}
+        <p class="text-red-500 mb-4">{error}</p>
+    {/if}
+
+    <!-- Create Note Form -->
+    <form on:submit|preventDefault={handleCreate} class="mb-6">
+        <input
+            type="text"
+            bind:value={newTitle}
+            placeholder="Note title"
+            class="border p-2 mr-2"
+        />
+        <textarea
+            bind:value={newContent}
+            placeholder="Note content"
+            class="border p-2 mr-2"
+        ></textarea>
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2">
+            Add Note
+        </button>
+    </form>
+
+    <!-- Notes List -->
+    {#if loading}
+        <p>Loading...</p>
+    {:else if notes.length === 0}
+        <p>No notes yet. Create one!</p>
+    {:else}
+        <ul class="space-y-2">
+            {#each notes as note (note.id)}
+                <li class="border p-4 rounded">
+                    <h2 class="font-bold">{note.title}</h2>
+                    <p>{note.content}</p>
+                    <button
+                        on:click={() => handleDelete(note.id)}
+                        class="text-red-500 mt-2"
+                    >
+                        Delete
+                    </button>
+                </li>
+            {/each}
+        </ul>
+    {/if}
+</main>
+```
+
+### Using Svelte Stores for State
+
+For more complex state management, use Svelte stores:
+
+```typescript
+// src/lib/stores/notes.ts
+import { writable } from 'svelte/store';
+import { getAllNotes, createNote, updateNote, deleteNote } from '$lib/services/notes';
+import type { Note } from '$lib/types/Note';
+
+function createNotesStore() {
+    const { subscribe, set, update } = writable<Note[]>([]);
+
+    return {
+        subscribe,
+        load: async () => {
+            const notes = await getAllNotes();
+            set(notes);
+        },
+        add: async (title: string, content: string) => {
+            const note = await createNote(title, content);
+            update(notes => [...notes, note]);
+            return note;
+        },
+        update: async (id: string, title: string, content: string) => {
+            const updated = await updateNote(id, title, content);
+            update(notes => notes.map(n => n.id === id ? updated : n));
+            return updated;
+        },
+        remove: async (id: string) => {
+            await deleteNote(id);
+            update(notes => notes.filter(n => n.id !== id));
+        }
     };
+}
 
-    const getAllNotes = async (): Promise<Note[]> => {
-        return invoke<Note[]>('get_all_notes');
-    };
+export const notes = createNotesStore();
+```
 
-    const getNote = async (id: string): Promise<Note> => {
-        return invoke<Note>('get_note', { id });
-    };
+Using the store in a component:
 
-    const updateNote = async (id: string, title: string, content: string): Promise<Note> => {
-        return invoke<Note>('update_note', { id, title, content });
-    };
+```svelte
+<script lang="ts">
+    import { onMount } from 'svelte';
+    import { notes } from '$lib/stores/notes';
 
-    const deleteNote = async (id: string): Promise<void> => {
-        return invoke('delete_note', { id });
-    };
+    onMount(() => {
+        notes.load();
+    });
+</script>
 
-    return { createNote, getAllNotes, getNote, updateNote, deleteNote };
-};
+{#each $notes as note (note.id)}
+    <div>{note.title}</div>
+{/each}
 ```
 
 ---
@@ -441,13 +597,13 @@ export const useNotes = () => {
 
 ### Exercise 1: Create Your First Command
 1. Create a simple command that returns "Hello from Rust!"
-2. Call it from React and display the result
+2. Call it from Svelte and display the result
 3. Add a parameter to personalize the greeting
 
 ### Exercise 2: Work with Structs
 1. Create a `Note` struct with id, title, and content
 2. Create a command that returns a hardcoded Note
-3. Display the note in a React component
+3. Display the note in a Svelte component
 
 ### Exercise 3: Implement State
 1. Add `AppState` with a `Vec<Note>`
@@ -512,6 +668,7 @@ let notes = state.notes.lock().map_err(|e| e.to_string())?;
 - [Tauri Commands Documentation](https://v2.tauri.app/develop/calling-rust/)
 - [Serde Documentation](https://serde.rs/)
 - [Rust Mutex Documentation](https://doc.rust-lang.org/std/sync/struct.Mutex.html)
+- [Svelte Stores Documentation](https://svelte.dev/docs/svelte-store)
 
 ---
 
@@ -523,5 +680,6 @@ In this phase, you learned:
 - ✅ How to serialize data with Serde
 - ✅ How to manage application state with `Mutex`
 - ✅ How to implement CRUD operations for notes
+- ✅ How to use Svelte stores for frontend state management
 
 Next: [Phase 3 - JSON File Storage + File System Access](../phase-3-file-system/01-objectives.md)

@@ -364,42 +364,68 @@ fn create_note(title: String, content: String, state: State<'_, AppState>) -> Re
 
 ### Loading Notes on Startup
 
-In your React app:
+In your Svelte app:
+
+```svelte
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+    import { onMount } from 'svelte';
+    import { invoke } from '@tauri-apps/api/core';
+    import type { Note } from '$lib/types/Note';
+
+    let notes: Note[] = [];
+    let loading = true;
+    let error = '';
+
+    onMount(async () => {
+        try {
+            // Initialize storage and load notes
+            await invoke('init_storage');
+            notes = await invoke<Note[]>('get_all_notes');
+        } catch (e) {
+            console.error('Failed to initialize:', e);
+            error = String(e);
+        } finally {
+            loading = false;
+        }
+    });
+</script>
+
+{#if loading}
+    <div>Loading...</div>
+{:else if error}
+    <div class="text-red-500">Error: {error}</div>
+{:else}
+    <!-- Your app UI -->
+    {#each notes as note (note.id)}
+        <div>{note.title}</div>
+    {/each}
+{/if}
+```
+
+You can also use a Svelte store for global state:
 
 ```typescript
-// src/App.tsx
-import { useEffect, useState } from 'react';
+// src/lib/stores/notes.ts
+import { writable } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
+import type { Note } from '$lib/types/Note';
 
-function App() {
-    const [notes, setNotes] = useState<Note[]>([]);
-    const [loading, setLoading] = useState(true);
+function createNotesStore() {
+    const { subscribe, set, update } = writable<Note[]>([]);
 
-    useEffect(() => {
-        async function initApp() {
-            try {
-                // Initialize storage and load notes
-                await invoke('init_storage');
-                const loadedNotes = await invoke<Note[]>('get_all_notes');
-                setNotes(loadedNotes);
-            } catch (error) {
-                console.error('Failed to initialize:', error);
-            } finally {
-                setLoading(false);
-            }
-        }
-        
-        initApp();
-    }, []);
-
-    if (loading) {
-        return <div>Loading...</div>;
-    }
-
-    return (
-        // Your app UI
-    );
+    return {
+        subscribe,
+        init: async () => {
+            await invoke('init_storage');
+            const notes = await invoke<Note[]>('get_all_notes');
+            set(notes);
+        },
+        // ... other methods
+    };
 }
+
+export const notes = createNotesStore();
 ```
 
 ---

@@ -13,7 +13,7 @@ Each phase contains:
 
 | Phase | Topic | Description |
 |-------|-------|-------------|
-| [Phase 1](./phase-1-project-setup/) | Project Setup | Initialize Tauri v2 with React, TypeScript, Vite |
+| [Phase 1](./phase-1-project-setup/) | Project Setup | Initialize Tauri v2 with SvelteKit, TypeScript, Vite |
 | [Phase 2](./phase-2-ipc/) | IPC & Commands | Create Tauri commands, use invoke(), manage state |
 | [Phase 3](./phase-3-file-system/) | File System | Persist data with JSON files, configure permissions |
 | [Phase 4](./phase-4-native-menus/) | Native Menus | Create menus, keyboard shortcuts, handle events |
@@ -46,8 +46,8 @@ Each phase contains:
 ## 📋 Prerequisites
 
 Before starting, ensure you have:
-- Basic knowledge of React and TypeScript
-- Node.js (v16+) installed
+- Basic knowledge of Svelte/SvelteKit and TypeScript
+- Node.js (v18+) installed
 - Rust installed (`rustup`)
 - A code editor (VS Code recommended)
 - System dependencies for Tauri (see [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/))
@@ -60,5 +60,6 @@ Begin your journey: [Phase 1 - Project Setup](./phase-1-project-setup/01-objecti
 
 - [Tauri v2 Documentation](https://v2.tauri.app/)
 - [Tauri GitHub](https://github.com/tauri-apps/tauri)
-- [React Documentation](https://react.dev/)
+- [Svelte Documentation](https://svelte.dev/docs)
+- [SvelteKit Documentation](https://svelte.dev/docs/kit)
 - [Rust Book](https://doc.rust-lang.org/book/)

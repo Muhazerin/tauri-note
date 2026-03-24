@@ -321,51 +321,133 @@ pub fn run() {
 
 ### Frontend Event Handling
 
-```typescript
-// src/hooks/useMenuEvents.ts
-import { useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
+Create a Svelte action or use `onMount` to listen for menu events:
 
-export function useMenuEvents(handlers: {
+```svelte
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+    import { onMount, onDestroy } from 'svelte';
+    import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+
+    let unlisteners: UnlistenFn[] = [];
+
+    onMount(async () => {
+        // Listen for menu events
+        unlisteners.push(
+            await listen('menu:new-note', () => {
+                console.log('New note from menu');
+                handleNewNote();
+            })
+        );
+        
+        unlisteners.push(
+            await listen('menu:save-note', () => {
+                console.log('Save from menu');
+                handleSaveNote();
+            })
+        );
+        
+        unlisteners.push(
+            await listen('menu:delete-note', () => {
+                console.log('Delete from menu');
+                handleDeleteNote();
+            })
+        );
+        
+        unlisteners.push(
+            await listen('menu:toggle-auto-save', () => {
+                console.log('Toggle auto-save');
+                autoSave = !autoSave;
+            })
+        );
+    });
+
+    onDestroy(() => {
+        // Clean up listeners
+        unlisteners.forEach(unlisten => unlisten());
+    });
+
+    let autoSave = true;
+
+    function handleNewNote() {
+        // Create new note logic
+    }
+
+    function handleSaveNote() {
+        // Save note logic
+    }
+
+    function handleDeleteNote() {
+        // Delete note logic
+    }
+</script>
+```
+
+You can also create a reusable utility for menu events:
+
+```typescript
+// src/lib/utils/menuEvents.ts
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+
+export type MenuEventHandlers = {
     onNewNote?: () => void;
     onSaveNote?: () => void;
     onDeleteNote?: () => void;
     onAbout?: () => void;
     onToggleAutoSave?: () => void;
-}) {
-    useEffect(() => {
-        const unlisteners: (() => void)[] = [];
-        
-        const setupListeners = async () => {
-            if (handlers.onNewNote) {
-                const unlisten = await listen('menu:new-note', handlers.onNewNote);
-                unlisteners.push(unlisten);
-            }
-            if (handlers.onSaveNote) {
-                const unlisten = await listen('menu:save-note', handlers.onSaveNote);
-                unlisteners.push(unlisten);
-            }
-            if (handlers.onDeleteNote) {
-                const unlisten = await listen('menu:delete-note', handlers.onDeleteNote);
-                unlisteners.push(unlisten);
-            }
-            if (handlers.onAbout) {
-                const unlisten = await listen('menu:about', handlers.onAbout);
-                unlisteners.push(unlisten);
-            }
-            if (handlers.onToggleAutoSave) {
-                const unlisten = await listen('menu:toggle-auto-save', handlers.onToggleAutoSave);
-                unlisteners.push(unlisten);
-            }
-        };
-        
-        setupListeners();
-        
-        return () => {
-            unlisteners.forEach(unlisten => unlisten());
-        };
-    }, [handlers]);
+};
+
+export async function setupMenuListeners(handlers: MenuEventHandlers): Promise<UnlistenFn[]> {
+    const unlisteners: UnlistenFn[] = [];
+
+    if (handlers.onNewNote) {
+        unlisteners.push(await listen('menu:new-note', handlers.onNewNote));
+    }
+    if (handlers.onSaveNote) {
+        unlisteners.push(await listen('menu:save-note', handlers.onSaveNote));
+    }
+    if (handlers.onDeleteNote) {
+        unlisteners.push(await listen('menu:delete-note', handlers.onDeleteNote));
+    }
+    if (handlers.onAbout) {
+        unlisteners.push(await listen('menu:about', handlers.onAbout));
+    }
+    if (handlers.onToggleAutoSave) {
+        unlisteners.push(await listen('menu:toggle-auto-save', handlers.onToggleAutoSave));
+    }
+
+    return unlisteners;
 }
+
+export function cleanupMenuListeners(unlisteners: UnlistenFn[]) {
+    unlisteners.forEach(unlisten => unlisten());
+}
+```
+
+Using the utility in a component:
+
+```svelte
+<script lang="ts">
+    import { onMount, onDestroy } from 'svelte';
+    import { setupMenuListeners, cleanupMenuListeners, type MenuEventHandlers } from '$lib/utils/menuEvents';
+    import type { UnlistenFn } from '@tauri-apps/api/event';
+
+    let unlisteners: UnlistenFn[] = [];
+
+    const handlers: MenuEventHandlers = {
+        onNewNote: () => console.log('New note'),
+        onSaveNote: () => console.log('Save note'),
+        onDeleteNote: () => console.log('Delete note'),
+    };
+
+    onMount(async () => {
+        unlisteners = await setupMenuListeners(handlers);
+    });
+
+    onDestroy(() => {
+        cleanupMenuListeners(unlisteners);
+    });
+</script>
 ```
 
 ---
@@ -384,7 +466,7 @@ export function useMenuEvents(handlers: {
 
 ### Exercise 3: Handle Menu Events
 1. Emit events to the frontend
-2. Listen for events in React
+2. Listen for events in Svelte
 3. Trigger note operations from menu
 
 ### Exercise 4: Add View Menu

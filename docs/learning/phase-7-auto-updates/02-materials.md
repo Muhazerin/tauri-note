@@ -214,66 +214,69 @@ async function downloadAndInstall() {
 }
 ```
 
-### React Hook for Updates
+### Svelte Store for Updates
 
 ```typescript
-// src/hooks/useUpdater.ts
-import { useState, useEffect } from 'react';
-import { check, Update } from '@tauri-apps/plugin-updater';
+// src/lib/stores/updater.ts
+import { writable, derived } from 'svelte/store';
+import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
-export function useUpdater() {
-    const [update, setUpdate] = useState<Update | null>(null);
-    const [checking, setChecking] = useState(false);
-    const [downloading, setDownloading] = useState(false);
-    const [progress, setProgress] = useState(0);
-
-    const checkForUpdate = async () => {
-        setChecking(true);
-        try {
-            const available = await check();
-            setUpdate(available);
-        } catch (error) {
-            console.error('Update check failed:', error);
-        } finally {
-            setChecking(false);
-        }
-    };
-
-    const installUpdate = async () => {
-        if (!update) return;
-        
-        setDownloading(true);
-        try {
-            let totalSize = 0;
-            let downloaded = 0;
-            
-            await update.downloadAndInstall((event) => {
-                if (event.event === 'Started') {
-                    totalSize = event.data.contentLength || 0;
-                } else if (event.event === 'Progress') {
-                    downloaded += event.data.chunkLength;
-                    setProgress(totalSize ? (downloaded / totalSize) * 100 : 0);
-                }
-            });
-            
-            await relaunch();
-        } catch (error) {
-            console.error('Update failed:', error);
-        } finally {
-            setDownloading(false);
-        }
-    };
+function createUpdaterStore() {
+    const update = writable<Update | null>(null);
+    const checking = writable(false);
+    const downloading = writable(false);
+    const progress = writable(0);
 
     return {
         update,
         checking,
         downloading,
         progress,
-        checkForUpdate,
-        installUpdate,
+        
+        checkForUpdate: async () => {
+            checking.set(true);
+            try {
+                const available = await check();
+                update.set(available);
+            } catch (error) {
+                console.error('Update check failed:', error);
+            } finally {
+                checking.set(false);
+            }
+        },
+
+        installUpdate: async () => {
+            let currentUpdate: Update | null = null;
+            update.subscribe(u => currentUpdate = u)();
+            
+            if (!currentUpdate) return;
+            
+            downloading.set(true);
+            try {
+                let totalSize = 0;
+                let downloaded = 0;
+                
+                await currentUpdate.downloadAndInstall((event) => {
+                    if (event.event === 'Started') {
+                        totalSize = event.data.contentLength || 0;
+                    } else if (event.event === 'Progress') {
+                        downloaded += event.data.chunkLength;
+                        progress.set(totalSize ? (downloaded / totalSize) * 100 : 0);
+                    }
+                });
+                
+                await relaunch();
+            } catch (error) {
+                console.error('Update failed:', error);
+            } finally {
+                downloading.set(false);
+            }
+        }
     };
 }
+
+export const updater = createUpdaterStore();
 ```
 
 ---
@@ -352,51 +355,64 @@ jobs:
 
 ### Update Component
 
-```tsx
-// src/components/UpdateNotification.tsx
-import { useUpdater } from '../hooks/useUpdater';
+```svelte
+<!-- src/lib/components/UpdateNotification.svelte -->
+<script lang="ts">
+    import { updater } from '$lib/stores/updater';
 
-export function UpdateNotification() {
-    const { update, checking, downloading, progress, checkForUpdate, installUpdate } = useUpdater();
+    const { update, checking, downloading, progress, checkForUpdate, installUpdate } = updater;
+</script>
 
-    if (checking) {
-        return <div className="p-4">Checking for updates...</div>;
-    }
-
-    if (!update) {
-        return (
-            <button onClick={checkForUpdate} className="btn">
-                Check for Updates
-            </button>
-        );
-    }
-
-    if (downloading) {
-        return (
-            <div className="p-4">
-                <p>Downloading update...</p>
-                <div className="w-full bg-gray-200 rounded">
-                    <div 
-                        className="bg-blue-600 h-2 rounded" 
-                        style={{ width: `${progress}%` }}
-                    />
-                </div>
-                <p>{progress.toFixed(0)}%</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="p-4 bg-blue-100 rounded">
-            <h3 className="font-bold">Update Available!</h3>
-            <p>Version {update.version} is available.</p>
-            {update.body && <p className="text-sm">{update.body}</p>}
-            <button onClick={installUpdate} className="btn btn-primary mt-2">
-                Install Update
-            </button>
+{#if $checking}
+    <div class="p-4">Checking for updates...</div>
+{:else if !$update}
+    <button on:click={checkForUpdate} class="btn">
+        Check for Updates
+    </button>
+{:else if $downloading}
+    <div class="p-4">
+        <p>Downloading update...</p>
+        <div class="w-full bg-gray-200 rounded">
+            <div 
+                class="bg-blue-600 h-2 rounded" 
+                style="width: {$progress}%"
+            />
         </div>
-    );
-}
+        <p>{$progress.toFixed(0)}%</p>
+    </div>
+{:else}
+    <div class="p-4 bg-blue-100 rounded">
+        <h3 class="font-bold">Update Available!</h3>
+        <p>Version {$update.version} is available.</p>
+        {#if $update.body}
+            <p class="text-sm">{$update.body}</p>
+        {/if}
+        <button on:click={installUpdate} class="btn btn-primary mt-2">
+            Install Update
+        </button>
+    </div>
+{/if}
+```
+
+### Using in Your App
+
+```svelte
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+    import { onMount } from 'svelte';
+    import UpdateNotification from '$lib/components/UpdateNotification.svelte';
+    import { updater } from '$lib/stores/updater';
+
+    // Optionally check for updates on mount
+    onMount(() => {
+        updater.checkForUpdate();
+    });
+</script>
+
+<main>
+    <UpdateNotification />
+    <!-- Rest of your app -->
+</main>
 ```
 
 ---

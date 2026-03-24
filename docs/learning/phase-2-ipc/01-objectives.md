@@ -1,7 +1,7 @@
 # Phase 2: Core Note Functionality + IPC - Learning Objectives
 
 ## Overview
-In this phase, you will learn how to create Tauri commands in Rust and call them from the React frontend using IPC (Inter-Process Communication). You'll build the core CRUD functionality for the note app.
+In this phase, you will learn how to create Tauri commands in Rust and call them from the Svelte frontend using IPC (Inter-Process Communication). You'll build the core CRUD functionality for the note app.
 
 ---
 
@@ -52,8 +52,9 @@ After completing this phase, you should be able to:
 You have successfully completed this phase when you can:
 
 1. ✅ Create a Tauri command that returns a string
-2. ✅ Call the command from React and display the result
-3. ✅ Pass parameters from React to a Rust command
+2. ✅ Call the command from Svelte and display the result
+3. ✅ Pass parameters from Svelte to a Rust command
 4. ✅ Create a Note struct that serializes to/from JSON
 5. ✅ Implement CRUD operations (Create, Read, Update, Delete) for notes
 6. ✅ Store notes in application state
+7. ✅ Use Svelte stores for frontend state management

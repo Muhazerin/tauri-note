@@ -40,69 +40,74 @@ This removes the native titlebar, giving you full control over the window appear
 
 ### Basic Titlebar Component
 
-```tsx
-// src/components/Titlebar.tsx
-import { getCurrentWindow } from '@tauri-apps/api/window';
+```svelte
+<!-- src/lib/components/Titlebar.svelte -->
+<script lang="ts">
+    import { getCurrentWindow } from '@tauri-apps/api/window';
 
-export function Titlebar() {
     const appWindow = getCurrentWindow();
 
-    const handleMinimize = () => appWindow.minimize();
-    const handleMaximize = () => appWindow.toggleMaximize();
-    const handleClose = () => appWindow.close();
+    function handleMinimize() {
+        appWindow.minimize();
+    }
 
-    return (
-        <div 
-            data-tauri-drag-region
-            className="h-8 bg-gray-800 flex items-center justify-between px-2 select-none"
+    function handleMaximize() {
+        appWindow.toggleMaximize();
+    }
+
+    function handleClose() {
+        appWindow.close();
+    }
+</script>
+
+<div 
+    data-tauri-drag-region
+    class="h-8 bg-gray-800 flex items-center justify-between px-2 select-none"
+>
+    <!-- App title -->
+    <div class="flex items-center gap-2" data-tauri-drag-region>
+        <span class="text-white text-sm font-medium">Tauri Note</span>
+    </div>
+
+    <!-- Window controls -->
+    <div class="flex items-center">
+        <button
+            on:click={handleMinimize}
+            class="w-8 h-8 flex items-center justify-center hover:bg-gray-700 text-white"
         >
-            {/* App title */}
-            <div className="flex items-center gap-2" data-tauri-drag-region>
-                <span className="text-white text-sm font-medium">Tauri Note</span>
-            </div>
-
-            {/* Window controls */}
-            <div className="flex items-center">
-                <button
-                    onClick={handleMinimize}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-gray-700 text-white"
-                >
-                    ─
-                </button>
-                <button
-                    onClick={handleMaximize}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-gray-700 text-white"
-                >
-                    □
-                </button>
-                <button
-                    onClick={handleClose}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-red-600 text-white"
-                >
-                    ✕
-                </button>
-            </div>
-        </div>
-    );
-}
+            ─
+        </button>
+        <button
+            on:click={handleMaximize}
+            class="w-8 h-8 flex items-center justify-center hover:bg-gray-700 text-white"
+        >
+            □
+        </button>
+        <button
+            on:click={handleClose}
+            class="w-8 h-8 flex items-center justify-center hover:bg-red-600 text-white"
+        >
+            ✕
+        </button>
+    </div>
+</div>
 ```
 
-### Using in App
+### Using in Layout
 
-```tsx
-// src/App.tsx
-import { Titlebar } from './components/Titlebar';
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+    import Titlebar from '$lib/components/Titlebar.svelte';
+    import '../app.css';
+</script>
 
-function App() {
-    return (
-        <div className="h-screen flex flex-col">
-            <Titlebar />
-            <main className="flex-1 overflow-auto">
-                {/* Your app content */}
-            </main>
-        </div>
-    );
-}
+<div class="h-screen flex flex-col">
+    <Titlebar />
+    <main class="flex-1 overflow-auto">
+        <slot />
+    </main>
+</div>
 ```
 
 ---
@@ -113,9 +118,9 @@ function App() {
 
 Add this attribute to any element that should allow window dragging:
 
-```tsx
-<div data-tauri-drag-region className="titlebar">
-    {/* Content */}
+```svelte
+<div data-tauri-drag-region class="titlebar">
+    <!-- Content -->
 </div>
 ```
 
@@ -125,16 +130,16 @@ Add this attribute to any element that should allow window dragging:
 2. **CSS**: Add `user-select: none` to prevent text selection while dragging
 3. **Nested regions**: The attribute works on nested elements too
 
-```tsx
-// ✅ Correct - buttons don't have drag region
-<div data-tauri-drag-region className="titlebar">
+```svelte
+<!-- ✅ Correct - buttons don't have drag region -->
+<div data-tauri-drag-region class="titlebar">
     <span data-tauri-drag-region>App Title</span>
-    <button onClick={handleClose}>✕</button>  {/* No drag region */}
+    <button on:click={handleClose}>✕</button>  <!-- No drag region -->
 </div>
 
-// ❌ Wrong - button has drag region, won't be clickable
-<div data-tauri-drag-region className="titlebar">
-    <button data-tauri-drag-region onClick={handleClose}>✕</button>
+<!-- ❌ Wrong - button has drag region, won't be clickable -->
+<div data-tauri-drag-region class="titlebar">
+    <button data-tauri-drag-region on:click={handleClose}>✕</button>
 </div>
 ```
 
@@ -168,34 +173,37 @@ const isFullscreen = await appWindow.isFullscreen();
 
 ### Handling Maximize State
 
-```tsx
-import { useState, useEffect } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+```svelte
+<script lang="ts">
+    import { onMount, onDestroy } from 'svelte';
+    import { getCurrentWindow } from '@tauri-apps/api/window';
 
-function Titlebar() {
-    const [isMaximized, setIsMaximized] = useState(false);
+    let isMaximized = false;
     const appWindow = getCurrentWindow();
+    let unlisten: (() => void) | null = null;
 
-    useEffect(() => {
+    onMount(async () => {
         // Check initial state
-        appWindow.isMaximized().then(setIsMaximized);
+        isMaximized = await appWindow.isMaximized();
 
         // Listen for changes
-        const unlisten = appWindow.onResized(() => {
-            appWindow.isMaximized().then(setIsMaximized);
+        unlisten = await appWindow.onResized(async () => {
+            isMaximized = await appWindow.isMaximized();
         });
+    });
 
-        return () => {
-            unlisten.then(fn => fn());
-        };
-    }, []);
+    onDestroy(() => {
+        if (unlisten) unlisten();
+    });
 
-    return (
-        <button onClick={() => appWindow.toggleMaximize()}>
-            {isMaximized ? '❐' : '□'}
-        </button>
-    );
-}
+    function toggleMaximize() {
+        appWindow.toggleMaximize();
+    }
+</script>
+
+<button on:click={toggleMaximize}>
+    {isMaximized ? '❐' : '□'}
+</button>
 ```
 
 ---
@@ -273,112 +281,119 @@ unlisten();
 
 ### Titlebar Component with Icons
 
-```tsx
-// src/components/Titlebar.tsx
-import { useState, useEffect } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+```svelte
+<!-- src/lib/components/Titlebar.svelte -->
+<script lang="ts">
+    import { onMount, onDestroy } from 'svelte';
+    import { getCurrentWindow } from '@tauri-apps/api/window';
 
-export function Titlebar() {
-    const [isMaximized, setIsMaximized] = useState(false);
+    let isMaximized = false;
     const appWindow = getCurrentWindow();
+    let unlisten: (() => void) | null = null;
 
-    useEffect(() => {
-        appWindow.isMaximized().then(setIsMaximized);
+    onMount(async () => {
+        isMaximized = await appWindow.isMaximized();
         
-        const setupListener = async () => {
-            return appWindow.onResized(() => {
-                appWindow.isMaximized().then(setIsMaximized);
-            });
-        };
-        
-        const unlisten = setupListener();
-        return () => {
-            unlisten.then(fn => fn());
-        };
-    }, []);
+        unlisten = await appWindow.onResized(async () => {
+            isMaximized = await appWindow.isMaximized();
+        });
+    });
 
-    return (
-        <header 
-            data-tauri-drag-region
-            className="h-10 bg-slate-900 flex items-center justify-between px-4 select-none"
+    onDestroy(() => {
+        if (unlisten) unlisten();
+    });
+
+    function minimize() {
+        appWindow.minimize();
+    }
+
+    function toggleMaximize() {
+        appWindow.toggleMaximize();
+    }
+
+    function close() {
+        appWindow.close();
+    }
+</script>
+
+<header 
+    data-tauri-drag-region
+    class="h-10 bg-slate-900 flex items-center justify-between px-4 select-none"
+>
+    <!-- Left: App icon and title -->
+    <div class="flex items-center gap-3" data-tauri-drag-region>
+        <img src="/favicon.png" alt="" class="w-5 h-5" />
+        <span class="text-slate-200 text-sm font-medium">
+            Tauri Note
+        </span>
+    </div>
+
+    <!-- Right: Window controls -->
+    <div class="flex -mr-2">
+        <!-- Minimize -->
+        <button
+            on:click={minimize}
+            class="w-10 h-10 flex items-center justify-center 
+                   text-slate-400 hover:text-white hover:bg-slate-700
+                   transition-colors"
+            aria-label="Minimize"
         >
-            {/* Left: App icon and title */}
-            <div className="flex items-center gap-3" data-tauri-drag-region>
-                <img src="/icon.png" alt="" className="w-5 h-5" />
-                <span className="text-slate-200 text-sm font-medium">
-                    Tauri Note
-                </span>
-            </div>
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4 8h8v1H4z"/>
+            </svg>
+        </button>
 
-            {/* Right: Window controls */}
-            <div className="flex -mr-2">
-                {/* Minimize */}
-                <button
-                    onClick={() => appWindow.minimize()}
-                    className="w-10 h-10 flex items-center justify-center 
-                               text-slate-400 hover:text-white hover:bg-slate-700
-                               transition-colors"
-                    aria-label="Minimize"
-                >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M4 8h8v1H4z"/>
-                    </svg>
-                </button>
+        <!-- Maximize/Restore -->
+        <button
+            on:click={toggleMaximize}
+            class="w-10 h-10 flex items-center justify-center 
+                   text-slate-400 hover:text-white hover:bg-slate-700
+                   transition-colors"
+            aria-label={isMaximized ? 'Restore' : 'Maximize'}
+        >
+            {#if isMaximized}
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3 5v8h8V5H3zm7 7H4V6h6v6z"/>
+                    <path d="M5 3h8v8h-1V4H5V3z"/>
+                </svg>
+            {:else}
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3 3v10h10V3H3zm9 9H4V4h8v8z"/>
+                </svg>
+            {/if}
+        </button>
 
-                {/* Maximize/Restore */}
-                <button
-                    onClick={() => appWindow.toggleMaximize()}
-                    className="w-10 h-10 flex items-center justify-center 
-                               text-slate-400 hover:text-white hover:bg-slate-700
-                               transition-colors"
-                    aria-label={isMaximized ? 'Restore' : 'Maximize'}
-                >
-                    {isMaximized ? (
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M3 5v8h8V5H3zm7 7H4V6h6v6z"/>
-                            <path d="M5 3h8v8h-1V4H5V3z"/>
-                        </svg>
-                    ) : (
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M3 3v10h10V3H3zm9 9H4V4h8v8z"/>
-                        </svg>
-                    )}
-                </button>
-
-                {/* Close */}
-                <button
-                    onClick={() => appWindow.close()}
-                    className="w-10 h-10 flex items-center justify-center 
-                               text-slate-400 hover:text-white hover:bg-red-600
-                               transition-colors"
-                    aria-label="Close"
-                >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                    </svg>
-                </button>
-            </div>
-        </header>
-    );
-}
+        <!-- Close -->
+        <button
+            on:click={close}
+            class="w-10 h-10 flex items-center justify-center 
+                   text-slate-400 hover:text-white hover:bg-red-600
+                   transition-colors"
+            aria-label="Close"
+        >
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+        </button>
+    </div>
+</header>
 ```
 
 ### App Layout
 
-```tsx
-// src/App.tsx
-import { Titlebar } from './components/Titlebar';
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+    import Titlebar from '$lib/components/Titlebar.svelte';
+    import '../app.css';
+</script>
 
-function App() {
-    return (
-        <div className="h-screen flex flex-col bg-slate-800">
-            <Titlebar />
-            <main className="flex-1 overflow-hidden">
-                {/* Your app content */}
-            </main>
-        </div>
-    );
-}
+<div class="h-screen flex flex-col bg-slate-800">
+    <Titlebar />
+    <main class="flex-1 overflow-hidden">
+        <slot />
+    </main>
+</div>
 ```
 
 ---
@@ -414,13 +429,13 @@ function App() {
 ## Common Pitfalls
 
 ### 1. Buttons Not Clickable
-```tsx
-// ❌ Button inside drag region with attribute
+```svelte
+<!-- ❌ Button inside drag region with attribute -->
 <div data-tauri-drag-region>
     <button data-tauri-drag-region>Click me</button>
 </div>
 
-// ✅ Button without drag region attribute
+<!-- ✅ Button without drag region attribute -->
 <div data-tauri-drag-region>
     <button>Click me</button>
 </div>
@@ -436,12 +451,30 @@ function App() {
 ```
 
 ### 3. Forgetting to Handle Maximize State
-```tsx
-// ❌ Static icon
+```svelte
+<!-- ❌ Static icon -->
 <button>□</button>
 
-// ✅ Dynamic icon based on state
+<!-- ✅ Dynamic icon based on state -->
 <button>{isMaximized ? '❐' : '□'}</button>
+```
+
+### 4. Not Cleaning Up Event Listeners
+```svelte
+<script lang="ts">
+    import { onMount, onDestroy } from 'svelte';
+    
+    let unlisten: (() => void) | null = null;
+
+    onMount(async () => {
+        unlisten = await appWindow.onResized(() => { /* ... */ });
+    });
+
+    // ✅ Always clean up
+    onDestroy(() => {
+        if (unlisten) unlisten();
+    });
+</script>
 ```
 
 ---

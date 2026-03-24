@@ -169,7 +169,7 @@ match event.id().as_ref() {
 ---
 
 ### Question 10
-How do you listen for menu events in the React frontend?
+How do you listen for menu events in the Svelte frontend?
 
 <details>
 <summary>Show Answer</summary>

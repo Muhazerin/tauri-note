@@ -47,7 +47,7 @@ What file is the main configuration file for a Tauri application?
 
 - A) `package.json`
 - B) `Cargo.toml`
-- C) `vite.config.ts`
+- C) `vite.config.js`
 - D) `tauri.conf.json`
 
 <details>
@@ -133,7 +133,7 @@ What is the purpose of `Cargo.toml` in a Tauri project?
 ---
 
 ### Question 8
-What happens when you modify a React component while `pnpm tauri dev` is running?
+What happens when you modify a Svelte component while `pnpm tauri dev` is running?
 
 - A) The app crashes
 - B) You need to restart the dev server
@@ -150,9 +150,45 @@ Frontend changes are hot-reloaded instantly thanks to Vite's HMR (Hot Module Rep
 
 ---
 
+### Question 9
+Why must SSR (Server-Side Rendering) be disabled for Tauri apps using SvelteKit?
+
+- A) SSR is too slow for desktop apps
+- B) Tauri loads static files, not a Node.js server
+- C) SSR causes security vulnerabilities
+- D) SvelteKit doesn't support SSR
+
+<details>
+<summary>Show Answer</summary>
+
+**B) Tauri loads static files, not a Node.js server**
+
+Tauri bundles and serves static files from the filesystem. There's no Node.js server running to handle SSR, so we must use `adapter-static` and disable SSR.
+</details>
+
+---
+
+### Question 10
+What is the correct way to disable SSR in SvelteKit for Tauri?
+
+- A) Set `ssr: false` in `svelte.config.js`
+- B) Export `ssr = false` from `+layout.ts`
+- C) Add `--no-ssr` flag to the build command
+- D) Remove the `+layout.svelte` file
+
+<details>
+<summary>Show Answer</summary>
+
+**B) Export `ssr = false` from `+layout.ts`**
+
+In `src/routes/+layout.ts`, you export `export const ssr = false;` and `export const prerender = true;` to disable SSR for the entire app.
+</details>
+
+---
+
 ## Fill in the Blanks
 
-### Question 9
+### Question 11
 Complete the following: The `identifier` field in `tauri.conf.json` should be in __________ format (e.g., `com.example.app`).
 
 <details>
@@ -165,22 +201,22 @@ The identifier uses reverse domain notation to ensure uniqueness across applicat
 
 ---
 
-### Question 10
-The frontend build output is placed in the __________ directory, which Tauri bundles into the final application.
+### Question 12
+In SvelteKit, the file `+page.svelte` in `src/routes/notes/` creates a route at the path __________.
 
 <details>
 <summary>Show Answer</summary>
 
-**dist** (or `../dist` relative to `src-tauri/`)
+**/notes**
 
-Vite builds the frontend into the `dist/` directory, which is then bundled with the Rust binary.
+SvelteKit uses file-based routing where the directory structure maps directly to URL paths.
 </details>
 
 ---
 
 ## True or False
 
-### Question 11
+### Question 13
 True or False: Tauri bundles its own browser engine like Electron does.
 
 <details>
@@ -193,8 +229,8 @@ Tauri uses the system's native webview (WebKit on macOS/Linux, WebView2 on Windo
 
 ---
 
-### Question 12
-True or False: You can use Vue or Svelte instead of React with Tauri.
+### Question 14
+True or False: You can use Vue or React instead of Svelte with Tauri.
 
 <details>
 <summary>Show Answer</summary>
@@ -206,15 +242,28 @@ Tauri is frontend-agnostic. You can use React, Vue, Svelte, Angular, or even van
 
 ---
 
+### Question 15
+True or False: SvelteKit's `$lib` alias points to the `src/lib/` directory.
+
+<details>
+<summary>Show Answer</summary>
+
+**True**
+
+The `$lib` alias is a built-in SvelteKit feature that provides a convenient way to import from `src/lib/` without relative paths.
+</details>
+
+---
+
 ## Short Answer
 
-### Question 13
+### Question 16
 Explain the difference between `pnpm dev` and `pnpm tauri dev`.
 
 <details>
 <summary>Show Answer</summary>
 
-- `pnpm dev`: Starts only the Vite frontend development server. The app runs in a browser without Tauri features.
+- `pnpm dev`: Starts only the Vite/SvelteKit frontend development server. The app runs in a browser without Tauri features.
 - `pnpm tauri dev`: Starts both the Vite dev server AND the Tauri application. This opens the native window and enables all Tauri features like IPC, file system access, etc.
 
 Use `pnpm dev` for quick frontend-only development, and `pnpm tauri dev` when you need to test Tauri-specific functionality.
@@ -222,7 +271,7 @@ Use `pnpm dev` for quick frontend-only development, and `pnpm tauri dev` when yo
 
 ---
 
-### Question 14
+### Question 17
 What are the three main sections you would typically configure in `tauri.conf.json`?
 
 <details>
@@ -237,7 +286,7 @@ Other sections include `productName`, `version`, and `identifier` at the root le
 
 ---
 
-### Question 15
+### Question 18
 Why is Tauri considered more secure than Electron by default?
 
 <details>
@@ -256,7 +305,7 @@ Tauri is more secure because:
 
 ## Practical Exercise
 
-### Question 16
+### Question 19
 Given the following `tauri.conf.json` snippet, identify what changes you would make to:
 1. Change the window title to "My Notes App"
 2. Set the initial window size to 1024x768
@@ -303,14 +352,37 @@ Changes made:
 
 ---
 
+### Question 20
+Write the content of a `+layout.ts` file that properly configures SvelteKit for Tauri.
+
+<details>
+<summary>Show Answer</summary>
+
+```typescript
+// src/routes/+layout.ts
+
+// Disable server-side rendering for Tauri
+export const ssr = false;
+
+// Enable prerendering for static output
+export const prerender = true;
+```
+
+These exports tell SvelteKit to:
+1. Not attempt server-side rendering (since Tauri serves static files)
+2. Prerender all pages at build time for the static adapter
+</details>
+
+---
+
 ## Score Yourself
 
 | Score | Rating |
 |-------|--------|
-| 14-16 | ⭐⭐⭐ Excellent! Ready for Phase 2 |
-| 10-13 | ⭐⭐ Good! Review the materials you missed |
-| 6-9 | ⭐ Fair. Re-read the learning materials |
-| 0-5 | Need more practice. Start from the beginning |
+| 18-20 | ⭐⭐⭐ Excellent! Ready for Phase 2 |
+| 14-17 | ⭐⭐ Good! Review the materials you missed |
+| 10-13 | ⭐ Fair. Re-read the learning materials |
+| 0-9 | Need more practice. Start from the beginning |
 
 ---
 
@@ -321,3 +393,4 @@ If you scored well, proceed to [Phase 2: Core Note Functionality + IPC](../phase
 If you need more practice, review:
 - [Phase 1 Learning Materials](./02-materials.md)
 - [Tauri v2 Documentation](https://v2.tauri.app/)
+- [SvelteKit Documentation](https://svelte.dev/docs/kit)
